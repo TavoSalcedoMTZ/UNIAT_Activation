@@ -16,45 +16,20 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-//Construye las escenas de Espacio UNIAT (recomendacion y menu de planetas) desde el menu "Espacio UNIAT"
+//Construye las escenas de Espacio UNIAT desde el menu "Espacio UNIAT"
+//Este archivo: escenas generadas (recomendacion, menu de planetas, llegada a cada mundo) y helpers
+//EspacioUniatSceneBuilder.Restyle.cs: estilo aplicado sobre las escenas existentes 0 y 1
 [InitializeOnLoad]
-public static class EspacioUniatSceneBuilder
+public static partial class EspacioUniatSceneBuilder
 {
-    //Si existe este archivo, al terminar de compilar se construye todo automaticamente una sola vez
-    //Si su contenido es "buildsettings" solo actualiza Build Settings
+    //Si existe este archivo, al terminar de compilar se construye automaticamente una sola vez
+    //Contenido: vacio = todo, "buildsettings" = solo Build Settings, "restyle" = solo escenas 0 y 1
     private const string AutoBuildMarker = "Temp/EspacioUniat_AutoBuild";
     private static bool autoMode;
 
-    static EspacioUniatSceneBuilder()
-    {
-        EditorApplication.delayCall += RunPendingAutoBuild;
-    }
-
-    private static void RunPendingAutoBuild()
-    {
-        if (!File.Exists(AutoBuildMarker) || EditorApplication.isPlayingOrWillChangePlaymode) return;
-        bool onlyBuildSettings = File.ReadAllText(AutoBuildMarker).Trim() == "buildsettings";
-        File.Delete(AutoBuildMarker);
-
-        autoMode = true;
-        try
-        {
-            if (onlyBuildSettings) AddScenesToBuildSettings();
-            else BuildAll();
-            Debug.Log("[Espacio UNIAT] Auto build terminado.");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Espacio UNIAT] Auto build fallo: {e}");
-        }
-        finally
-        {
-            autoMode = false;
-        }
-    }
-
     private const string RecommendationScenePath = "Assets/Scenes/recomendation.unity";
     private const string PlanetMenuScenePath = "Assets/Scenes/3.unity";
+    private const string WorldScenesFolder = "Assets/Scenes/worlds";
     private const string BackupFolder = "Assets/Scenes/_Backup";
     private const string GeneratedArtFolder = "Assets/Art/Generated";
     private const string PrefabFolder = "Assets/Prefabs/UI";
@@ -68,10 +43,10 @@ public static class EspacioUniatSceneBuilder
         "Assets/Scenes/2.unity",
         RecommendationScenePath,
         PlanetMenuScenePath,
-        "Assets/Scenes/worlds/W_IPV.unity",
-        "Assets/Scenes/worlds/W_LAV.unity",
-        "Assets/Scenes/worlds/W_CAD.unity",
-        "Assets/Scenes/worlds/W_CS.unity",
+        WorldScenesFolder + "/W_IPV.unity",
+        WorldScenesFolder + "/W_LAV.unity",
+        WorldScenesFolder + "/W_CAD.unity",
+        WorldScenesFolder + "/W_CS.unity",
     };
 
     private static readonly Color SpaceBackground = new(0.027f, 0.04f, 0.12f);
@@ -82,17 +57,70 @@ public static class EspacioUniatSceneBuilder
     private static readonly Color PanelColor = new(1f, 1f, 1f, 0.07f);
     private static readonly Color SoftWhite = new(1f, 1f, 1f, 0.75f);
 
+    private static double nextMarkerCheck;
+    private static readonly DateTime loadedAt = DateTime.Now;
+
+    static EspacioUniatSceneBuilder()
+    {
+        EditorApplication.delayCall += RunPendingAutoBuild;
+        EditorApplication.update += PollAutoBuildMarker;
+    }
+
+    //Revisa el marcador cada 2 segundos, asi funciona aunque no haya recompilacion
+    private static void PollAutoBuildMarker()
+    {
+        if (EditorApplication.timeSinceStartup < nextMarkerCheck) return;
+        nextMarkerCheck = EditorApplication.timeSinceStartup + 2;
+        if (File.Exists(AutoBuildMarker) && !EditorApplication.isCompiling && !EditorApplication.isUpdating && !ScriptsChangedSinceLoad())
+        {
+            RunPendingAutoBuild();
+        }
+    }
+
+    //Si algun script se modifico despues de cargar este codigo, falta recompilar y no hay que correr la version vieja
+    private static bool ScriptsChangedSinceLoad()
+    {
+        return Directory.GetFiles("Assets/Script", "*.cs", SearchOption.AllDirectories)
+            .Any(path => File.GetLastWriteTime(path) > loadedAt);
+    }
+
+    private static void RunPendingAutoBuild()
+    {
+        if (!File.Exists(AutoBuildMarker) || EditorApplication.isPlayingOrWillChangePlaymode) return;
+        string mode = File.ReadAllText(AutoBuildMarker).Trim();
+        File.Delete(AutoBuildMarker);
+
+        autoMode = true;
+        try
+        {
+            if (mode == "buildsettings") AddScenesToBuildSettings();
+            else if (mode == "restyle")
+            {
+                if (RestyleExistingScenes()) EditorSceneManager.OpenScene(Scene0Path);
+            }
+            else BuildAll();
+            Debug.Log("[Espacio UNIAT] Auto build terminado.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Espacio UNIAT] Auto build fallo: {e}");
+        }
+        finally
+        {
+            autoMode = false;
+        }
+    }
+
     [MenuItem("Espacio UNIAT/Construir todo", priority = 0)]
     private static void BuildAll()
     {
-        if (!BuildRecommendationScene())
+        if (!BuildRecommendationScene() || !BuildPlanetMenuScene() || !BuildWorldScenes() || !RestyleExistingScenes())
         {
             Debug.LogWarning("[Espacio UNIAT] Construccion cancelada.");
             return;
         }
-        if (!BuildPlanetMenuScene()) return;
         AddScenesToBuildSettings();
-        EditorSceneManager.OpenScene(RecommendationScenePath);
+        EditorSceneManager.OpenScene(Scene0Path);
     }
 
     [MenuItem("Espacio UNIAT/1. Escena recomendation", priority = 20)]
@@ -107,7 +135,13 @@ public static class EspacioUniatSceneBuilder
         BuildPlanetMenuScene();
     }
 
-    [MenuItem("Espacio UNIAT/3. Agregar escenas a Build Settings", priority = 22)]
+    [MenuItem("Espacio UNIAT/3. Escenas de llegada a cada mundo (W_*)", priority = 22)]
+    private static void BuildWorldScenesMenu()
+    {
+        BuildWorldScenes();
+    }
+
+    [MenuItem("Espacio UNIAT/5. Agregar escenas a Build Settings", priority = 40)]
     private static void AddScenesToBuildSettings()
     {
         List<EditorBuildSettingsScene> scenes = EditorBuildSettings.scenes.ToList();
@@ -123,11 +157,33 @@ public static class EspacioUniatSceneBuilder
         Debug.Log("[Espacio UNIAT] Build Settings actualizados.");
     }
 
-    #region Recomendacion
+    #region Revelacion (recomendacion y llegada a mundos)
 
     private static bool BuildRecommendationScene()
     {
-        if (!PrepareScene(RecommendationScenePath)) return false;
+        return BuildRevealScene(RecommendationScenePath, null, new List<string> { "NUESTRA", "RECOMENDACIÓN ES" });
+    }
+
+    private static bool BuildWorldScenes()
+    {
+        foreach (worldInfo world in LoadWorlds())
+        {
+            string path = $"{WorldScenesFolder}/{world.sceneName}.unity";
+            if (string.IsNullOrEmpty(world.sceneName) || !File.Exists(path))
+            {
+                Debug.LogWarning($"[Espacio UNIAT] No existe la escena {path} para {world.name}, se omite.");
+                continue;
+            }
+            if (!BuildRevealScene(path, world, new List<string> { "BIENVENIDO A" })) return false;
+        }
+        return true;
+    }
+
+    //Escena con textos POP y el planeta revelado. Sin fixedWorld es la recomendacion, con fixedWorld es la llegada a ese mundo
+    private static bool BuildRevealScene(string _path, worldInfo _fixedWorld, List<string> _introLines)
+    {
+        if (!PrepareScene(_path)) return false;
+        bool isRecommendation = _fixedWorld == null;
 
         Sprite circle = GetCircleSprite();
         Sprite glow = GetGlowSprite();
@@ -140,18 +196,29 @@ public static class EspacioUniatSceneBuilder
 
         //Planeta (se crea antes que el texto para que quede detras)
         RectTransform planetGroup = CreateRect(canvas.transform, "PlanetGroup", new Vector2(0, 40), new Vector2(600, 600));
-        Image planetGlow = CreateImage(planetGroup, "PlanetGlow", glow, new Color(1, 1, 1, 0.5f), Vector2.zero, new Vector2(560, 560));
-        Image planetImage = CreateImage(planetGroup, "Planet", circle, Color.white, Vector2.zero, new Vector2(300, 300));
+        RectTransform planetVisual = CreateRect(planetGroup, "PlanetVisual", Vector2.zero, new Vector2(560, 560));
+        planetVisual.gameObject.AddComponent<FloatIdle>().amplitude = 14f;
+        Image planetGlow = CreateImage(planetVisual, "PlanetGlow", glow, new Color(1, 1, 1, 0.5f), Vector2.zero, new Vector2(560, 560));
+        Image planetImage = CreateImage(planetVisual, "Planet", circle, Color.white, Vector2.zero, new Vector2(300, 300));
         TextMeshProUGUI careerText = CreateText(planetGroup, "CareerText", "Carrera", 42, Accent, new Vector2(0, -200), new Vector2(1400, 70));
 
-        TextMeshProUGUI popText = CreateText(canvas.transform, "PopText", "NUESTRA", 120, Color.white, new Vector2(0, 370), new Vector2(1800, 170));
+        TextMeshProUGUI popText = CreateText(canvas.transform, "PopText", _introLines[0], 120, Color.white, new Vector2(0, 370), new Vector2(1800, 170));
         popText.fontStyle = FontStyles.Bold;
 
         //Botones
         RectTransform buttons = CreateRect(canvas.transform, "Buttons", new Vector2(0, -350), new Vector2(1100, 120));
         CanvasGroup buttonsGroup = buttons.gameObject.AddComponent<CanvasGroup>();
-        Button goToPlanetBT = CreateButton(buttons, "BT_MyPlanet", "IR A MI PLANETA", new Vector2(-265, 0), new Vector2(500, 110), rounded, Accent, SpaceBackground);
-        Button otherPlanetsBT = CreateButton(buttons, "BT_OtherPlanets", "VER OTROS PLANETAS", new Vector2(265, 0), new Vector2(500, 110), rounded, PanelColor, Color.white);
+        Button goToPlanetBT = null;
+        Button otherPlanetsBT;
+        if (isRecommendation)
+        {
+            goToPlanetBT = CreateButton(buttons, "BT_MyPlanet", "IR A MI PLANETA", new Vector2(-265, 0), new Vector2(500, 110), rounded, Accent, SpaceBackground);
+            otherPlanetsBT = CreateButton(buttons, "BT_OtherPlanets", "VER OTROS PLANETAS", new Vector2(265, 0), new Vector2(500, 110), rounded, PanelColor, Color.white);
+        }
+        else
+        {
+            otherPlanetsBT = CreateButton(buttons, "BT_BackToSpace", "VOLVER AL ESPACIO", Vector2.zero, new Vector2(560, 110), rounded, PanelColor, Color.white);
+        }
 
         CreateText(canvas.transform, "Footer", "ESPACIO UNIAT", 28, new Color(1, 1, 1, 0.4f), new Vector2(0, -500), new Vector2(800, 50));
 
@@ -167,6 +234,8 @@ public static class EspacioUniatSceneBuilder
         GameObject screenGO = new GameObject("RecommendationScreen");
         RecommendationScreen screen = screenGO.AddComponent<RecommendationScreen>();
         screen.worlds = LoadWorlds();
+        screen.fixedWorld = _fixedWorld;
+        screen.introLines = _introLines;
         screen.popText = popText;
         screen.planetGroup = planetGroup;
         screen.planetImage = planetImage;
@@ -178,8 +247,15 @@ public static class EspacioUniatSceneBuilder
         screen.popFeedback = popFeedback;
         screen.planetRevealFeedback = planetRevealFeedback;
 
-        EditorSceneManager.SaveScene(scene, RecommendationScenePath);
-        Debug.Log($"[Espacio UNIAT] Escena creada: {RecommendationScenePath}");
+        if (!isRecommendation)
+        {
+            //Preview en el editor
+            planetImage.color = _fixedWorld.planetColor;
+            careerText.text = _fixedWorld.carrera.GetDisplayName();
+        }
+
+        EditorSceneManager.SaveScene(scene, _path);
+        Debug.Log($"[Espacio UNIAT] Escena creada: {_path}");
         return true;
     }
 
@@ -204,6 +280,7 @@ public static class EspacioUniatSceneBuilder
         TextMeshProUGUI title = CreateText(canvas.transform, "Title", "ESPACIO UNIAT", 110, Color.white, new Vector2(0, 410), new Vector2(1600, 150));
         title.fontStyle = FontStyles.Bold;
         title.characterSpacing = 12;
+        title.gameObject.AddComponent<FloatIdle>().amplitude = 8f;
         CreateText(canvas.transform, "Subtitle", "Elige el planeta que quieres explorar", 40, Accent, new Vector2(0, 310), new Vector2(1600, 60));
         CreateText(canvas.transform, "Footer", "Toca un planeta para viajar", 28, new Color(1, 1, 1, 0.45f), new Vector2(0, -490), new Vector2(800, 50));
 
@@ -259,15 +336,12 @@ public static class EspacioUniatSceneBuilder
 
         Button button = root.AddComponent<Button>();
         button.targetGraphic = background;
-        ColorBlock colors = button.colors;
-        //El fondo es casi transparente, al pasar el mouse o tocar se vuelve mas opaco
-        colors.highlightedColor = new Color(1f, 1f, 1f, 2f);
-        colors.pressedColor = new Color(1f, 1f, 1f, 3f);
-        colors.selectedColor = Color.white;
-        button.colors = colors;
+        SetTranslucentButtonColors(button);
 
-        Image planetGlow = CreateImage(root.transform, "PlanetGlow", glow, new Color(1, 1, 1, 0.45f), new Vector2(0, 110), new Vector2(380, 380));
-        Image planetImage = CreateImage(root.transform, "Planet", circle, Color.white, new Vector2(0, 110), new Vector2(210, 210));
+        RectTransform planetVisual = CreateRect(root.transform, "PlanetVisual", new Vector2(0, 110), new Vector2(380, 380));
+        planetVisual.gameObject.AddComponent<FloatIdle>().amplitude = 10f;
+        Image planetGlow = CreateImage(planetVisual, "PlanetGlow", glow, new Color(1, 1, 1, 0.45f), Vector2.zero, new Vector2(380, 380));
+        Image planetImage = CreateImage(planetVisual, "Planet", circle, Color.white, Vector2.zero, new Vector2(210, 210));
 
         Image badge = CreateImage(root.transform, "RecommendedBadge", rounded, Highlight, new Vector2(0, 268), new Vector2(270, 56));
         badge.type = Image.Type.Sliced;
@@ -294,6 +368,7 @@ public static class EspacioUniatSceneBuilder
         MMF_Player appear = root.AddComponent<MMF_Player>();
         AddScaleFeedback(appear, root.transform, 0.45f, 1.15f, "Card Pop");
         card.appearFeedback = appear;
+        AddButtonFeel(button);
 
         GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PlanetCardPrefabPath);
         Object.DestroyImmediate(root);
@@ -304,7 +379,12 @@ public static class EspacioUniatSceneBuilder
 
     #region Feel
 
-    private static MMF_Scale AddScaleFeedback(MMF_Player _player, Transform _target, float _duration, float _overshoot, string _label)
+    private static MMF_Scale AddScaleFeedback(MMF_Player _player, Transform _target, float _duration, float _overshoot, string _label, float _delay = 0f)
+    {
+        return AddScaleFeedback(_player, _target, _duration, PopCurve(_overshoot), _label, _delay);
+    }
+
+    private static MMF_Scale AddScaleFeedback(MMF_Player _player, Transform _target, float _duration, AnimationCurve _curve, string _label, float _delay = 0f)
     {
         MMF_Scale scale = (MMF_Scale)_player.AddFeedback(typeof(MMF_Scale));
         scale.Label = _label;
@@ -317,9 +397,10 @@ public static class EspacioUniatSceneBuilder
         scale.AnimateScaleDuration = _duration;
         scale.RemapCurveZero = 0f;
         scale.RemapCurveOne = 1f;
-        scale.AnimateScaleTweenX = new MMTweenType(PopCurve(_overshoot), "AnimateX");
-        scale.AnimateScaleTweenY = new MMTweenType(PopCurve(_overshoot), "AnimateY");
-        scale.AnimateScaleTweenZ = new MMTweenType(PopCurve(_overshoot), "AnimateZ");
+        scale.AnimateScaleTweenX = new MMTweenType(new AnimationCurve(_curve.keys), "AnimateX");
+        scale.AnimateScaleTweenY = new MMTweenType(new AnimationCurve(_curve.keys), "AnimateY");
+        scale.AnimateScaleTweenZ = new MMTweenType(new AnimationCurve(_curve.keys), "AnimateZ");
+        scale.Timing.InitialDelay = _delay;
         EditorUtility.SetDirty(_player);
         return scale;
     }
@@ -338,6 +419,33 @@ public static class EspacioUniatSceneBuilder
         EditorUtility.SetDirty(_player);
     }
 
+    //Shake horizontal (en pixeles) para avisar de un error
+    private static MMF_Player AddShakeFeedback(GameObject _host, float _strength, string _label)
+    {
+        MMF_Player player = CreateFeelHost(_host.transform, "Feel_Shake");
+        MMF_Position shake = (MMF_Position)player.AddFeedback(typeof(MMF_Position));
+        shake.Label = _label;
+        shake.AnimatePositionCurve = new AnimationCurve();
+        shake.AnimatePositionCurveX = new AnimationCurve();
+        shake.AnimatePositionCurveY = new AnimationCurve();
+        shake.AnimatePositionCurveZ = new AnimationCurve();
+        shake.AnimatePositionTarget = _host;
+        shake.Mode = MMF_Position.Modes.AlongCurve;
+        shake.Space = MMF_Position.Spaces.RectTransform;
+        shake.AnimatePositionDuration = 0.45f;
+        shake.AnimateX = true;
+        shake.AnimateY = false;
+        shake.AnimateZ = false;
+        shake.AnimatePositionTweenX = new MMTweenType(new AnimationCurve(
+            new Keyframe(0f, 0f), new Keyframe(0.12f, 1f), new Keyframe(0.3f, -1f), new Keyframe(0.48f, 0.7f),
+            new Keyframe(0.66f, -0.45f), new Keyframe(0.84f, 0.2f), new Keyframe(1f, 0f)), "AnimateX");
+        shake.RemapCurveZero = 0f;
+        shake.RemapCurveOne = _strength;
+        shake.RelativePosition = true;
+        EditorUtility.SetDirty(player);
+        return player;
+    }
+
     //Crece desde 0, se pasa un poco (overshoot) y se asienta en 1, eso da el efecto POP
     private static AnimationCurve PopCurve(float _overshoot)
     {
@@ -348,6 +456,57 @@ public static class EspacioUniatSceneBuilder
             new Keyframe(1f, 1f));
     }
 
+    //Se encoge al presionar y rebota
+    private static AnimationCurve PressCurve()
+    {
+        return new AnimationCurve(
+            new Keyframe(0f, 1f),
+            new Keyframe(0.25f, 0.86f),
+            new Keyframe(0.6f, 1.08f),
+            new Keyframe(1f, 1f));
+    }
+
+    //MMF_Player no permite dos en el mismo GameObject, los feedbacks extra viven en un hijo "Feel_*"
+    private static MMF_Player CreateFeelHost(Transform _parent, string _name)
+    {
+        Transform existing = _parent.Find(_name);
+        if (existing != null) Object.DestroyImmediate(existing.gameObject);
+
+        GameObject host = new GameObject(_name, typeof(RectTransform));
+        host.transform.SetParent(_parent, false);
+        return host.AddComponent<MMF_Player>();
+    }
+
+    private static void AddButtonFeel(Button _button)
+    {
+        ButtonFeel feel = _button.GetComponent<ButtonFeel>();
+        if (feel != null && feel.pressFeedback != null) return;
+        if (feel == null) feel = _button.gameObject.AddComponent<ButtonFeel>();
+
+        MMF_Player player = CreateFeelHost(_button.transform, "Feel_Press");
+        AddScaleFeedback(player, _button.transform, 0.3f, PressCurve(), "Press Punch");
+        feel.pressFeedback = player;
+        EditorUtility.SetDirty(feel);
+    }
+
+    //Crea (o recrea) un FeelPopGroup con un POP por objetivo, uno tras otro
+    private static FeelPopGroup SetupPopGroup(GameObject _host, IEnumerable<Transform> _targets, float _stagger, bool _playOnEnable)
+    {
+        FeelPopGroup group = _host.GetComponent<FeelPopGroup>();
+        if (group != null) Object.DestroyImmediate(group);
+
+        group = _host.AddComponent<FeelPopGroup>();
+        group.targets = _targets.Where(t => t != null).ToList();
+        group.playOnEnable = _playOnEnable;
+        group.popFeedback = CreateFeelHost(_host.transform, "Feel_Pop");
+        for (int i = 0; i < group.targets.Count; i++)
+        {
+            AddScaleFeedback(group.popFeedback, group.targets[i], 0.45f, 1.18f, $"Pop {group.targets[i].name}", i * _stagger);
+        }
+        EditorUtility.SetDirty(group);
+        return group;
+    }
+
     #endregion
 
     #region Objetos comunes
@@ -355,7 +514,7 @@ public static class EspacioUniatSceneBuilder
     //Guarda cambios pendientes y respalda la escena si ya existe
     private static bool PrepareScene(string _path)
     {
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return false;
+        if (!SaveOpenScenesIfNeeded()) return false;
 
         if (File.Exists(_path))
         {
@@ -363,12 +522,23 @@ public static class EspacioUniatSceneBuilder
                 $"Se va a reconstruir {_path}.\nSe guardará una copia de la escena actual en {BackupFolder}.",
                 "Reconstruir", "Cancelar");
             if (!rebuild) return false;
-
-            EnsureFolder(BackupFolder);
-            string backupPath = $"{BackupFolder}/{Path.GetFileNameWithoutExtension(_path)}_{DateTime.Now:yyyyMMdd_HHmmss}.unity";
-            AssetDatabase.CopyAsset(_path, backupPath);
+            BackupScene(_path);
         }
         return true;
+    }
+
+    private static bool SaveOpenScenesIfNeeded()
+    {
+        //En auto build una escena sin titulo es una construccion temporal que fallo, se descarta sin preguntar
+        if (autoMode && string.IsNullOrEmpty(SceneManager.GetActiveScene().path)) return true;
+        return EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+    }
+
+    private static void BackupScene(string _path)
+    {
+        EnsureFolder(BackupFolder);
+        string backupPath = $"{BackupFolder}/{Path.GetFileNameWithoutExtension(_path)}_{DateTime.Now:yyyyMMdd_HHmmss}.unity";
+        AssetDatabase.CopyAsset(_path, backupPath);
     }
 
     private static void CreateCommonObjects()
@@ -376,9 +546,7 @@ public static class EspacioUniatSceneBuilder
         GameObject cameraGO = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
         cameraGO.tag = "MainCamera";
         cameraGO.transform.position = new Vector3(0, 0, -10);
-        Camera camera = cameraGO.GetComponent<Camera>();
-        camera.clearFlags = CameraClearFlags.SolidColor;
-        camera.backgroundColor = SpaceBackground;
+        StyleCamera(cameraGO.GetComponent<Camera>());
 
         GameObject eventSystemPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EventSystemPrefabPath);
         if (eventSystemPrefab != null)
@@ -398,22 +566,35 @@ public static class EspacioUniatSceneBuilder
         EditorUtility.SetDirty(callBacker);
     }
 
+    private static void StyleCamera(Camera _camera)
+    {
+        _camera.clearFlags = CameraClearFlags.SolidColor;
+        _camera.backgroundColor = SpaceBackground;
+        EditorUtility.SetDirty(_camera);
+    }
+
     private static Canvas CreateCanvas(string _name)
     {
         GameObject go = new GameObject(_name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         Canvas canvas = go.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        CanvasScaler scaler = go.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.matchWidthOrHeight = 0.5f;
+        SetupCanvasScaler(go.GetComponent<CanvasScaler>());
         return canvas;
+    }
+
+    private static void SetupCanvasScaler(CanvasScaler _scaler)
+    {
+        _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        _scaler.referenceResolution = new Vector2(1920, 1080);
+        _scaler.matchWidthOrHeight = 0.5f;
+        EditorUtility.SetDirty(_scaler);
     }
 
     private static void CreateSpaceBackground(Transform _canvas, Sprite _glow)
     {
-        Image background = CreateImage(_canvas, "Background", null, SpaceBackground, Vector2.zero, Vector2.zero);
+        Image background = CreateImage(_canvas, "SpaceBackground", null, SpaceBackground, Vector2.zero, Vector2.zero);
         Stretch(background.rectTransform);
+        background.transform.SetAsFirstSibling();
 
         CreateImage(background.transform, "NebulaPurple", _glow, NebulaPurple, new Vector2(-620, 280), new Vector2(1300, 1300));
         CreateImage(background.transform, "NebulaCyan", _glow, NebulaCyan, new Vector2(700, -320), new Vector2(1200, 1200));
@@ -460,13 +641,23 @@ public static class EspacioUniatSceneBuilder
     {
         RectTransform rt = CreateRect(_parent, _name, _position, _size);
         TextMeshProUGUI text = rt.gameObject.AddComponent<TextMeshProUGUI>();
-        if (TMP_Settings.defaultFontAsset != null) text.font = TMP_Settings.defaultFontAsset;
-        text.text = _text;
-        text.fontSize = _fontSize;
-        text.color = _color;
-        text.alignment = TextAlignmentOptions.Center;
-        text.raycastTarget = false;
+        StyleText(text, _text, _fontSize, _color);
         return text;
+    }
+
+    private static void StyleText(TextMeshProUGUI _text, string _content, float _fontSize, Color _color)
+    {
+        if (TMP_Settings.defaultFontAsset != null) _text.font = TMP_Settings.defaultFontAsset;
+        _text.text = _content;
+        //Algunos textos originales traian margenes y estilos que los desacomodaban
+        _text.margin = Vector4.zero;
+        _text.fontStyle = FontStyles.Normal;
+        _text.fontSize = _fontSize;
+        _text.enableAutoSizing = false;
+        _text.color = _color;
+        _text.alignment = TextAlignmentOptions.Center;
+        _text.raycastTarget = false;
+        EditorUtility.SetDirty(_text);
     }
 
     private static Button CreateButton(Transform _parent, string _name, string _label, Vector2 _position, Vector2 _size, Sprite _sprite, Color _background, Color _textColor)
@@ -475,9 +666,34 @@ public static class EspacioUniatSceneBuilder
         image.type = Image.Type.Sliced;
         Button button = image.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
+        if (_background.a < 0.5f) SetTranslucentButtonColors(button);
+        else SetSolidButtonColors(button);
         TextMeshProUGUI label = CreateText(image.transform, "Label", _label, 36, _textColor, Vector2.zero, _size);
         label.fontStyle = FontStyles.Bold;
+        AddButtonFeel(button);
         return button;
+    }
+
+    //Para fondos casi transparentes: al pasar el mouse o tocar se vuelven mas opacos
+    private static void SetTranslucentButtonColors(Button _button)
+    {
+        ColorBlock colors = _button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 2f);
+        colors.pressedColor = new Color(1f, 1f, 1f, 3f);
+        colors.selectedColor = Color.white;
+        _button.colors = colors;
+    }
+
+    //Para fondos de color: se oscurecen un poco al pasar el mouse o tocar
+    private static void SetSolidButtonColors(Button _button)
+    {
+        ColorBlock colors = _button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.9f, 0.9f, 0.9f);
+        colors.pressedColor = new Color(0.78f, 0.78f, 0.78f);
+        colors.selectedColor = Color.white;
+        _button.colors = colors;
     }
 
     #endregion

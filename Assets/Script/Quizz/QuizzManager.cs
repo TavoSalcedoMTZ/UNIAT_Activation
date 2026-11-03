@@ -30,7 +30,7 @@ public class QuizzManager : MonoBehaviour
     {
         if (currentQuestionIndex < questions.Count)
         {
-            quizzUI.InitQuestion(questions[currentQuestionIndex]);
+            quizzUI.InitQuestion(questions[currentQuestionIndex], currentQuestionIndex, questions.Count);
             quizzUI.trueBT.onClick.AddListener(() =>
             {
                 NextQuestion();

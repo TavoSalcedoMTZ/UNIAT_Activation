@@ -8,14 +8,24 @@ public class QuizzUI : MonoBehaviour
     public Button trueBT;
     public Button falseBT;
 
+    [Header("Feel")]
+    public TMP_Text progressText;
+    [Tooltip("POP de la caja de pregunta cada vez que cambia")]
+    public FeelPopGroup questionPop;
 
 
-    public void InitQuestion(quizzQuestion _q)
+    public void InitQuestion(quizzQuestion _q, int _index, int _total)
     {
-        //Futuramente pondre una corrutina con feel pero ahora seteamos los valores en seco
-
         SetUIElements(_q);
 
+        if (progressText != null)
+        {
+            progressText.text = $"PREGUNTA {_index + 1} / {_total}";
+        }
+        if (questionPop != null)
+        {
+            questionPop.Play();
+        }
     }
 
     public void SetUIElements(quizzQuestion _q)

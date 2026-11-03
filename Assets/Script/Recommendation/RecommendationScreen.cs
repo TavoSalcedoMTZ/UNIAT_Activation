@@ -8,6 +8,8 @@ using UnityEngine.UI;
 public class RecommendationScreen : MonoBehaviour
 {
     public List<worldInfo> worlds = new();
+    [Tooltip("Si se asigna se muestra este mundo en vez del recomendado (pantalla de llegada de cada planeta)")]
+    public worldInfo fixedWorld;
 
     [Header("Textos POP")]
     public TMP_Text popText;
@@ -43,14 +45,14 @@ public class RecommendationScreen : MonoBehaviour
     private void Start()
     {
         CareerType career = AppStaticManager.RecommendedCareer ?? previewCareer;
-        recommendedWorld = worldInfo.FindByCareer(worlds, career);
+        recommendedWorld = fixedWorld != null ? fixedWorld : worldInfo.FindByCareer(worlds, career);
         if (recommendedWorld == null)
         {
             Debug.LogError($"No hay worldInfo para la carrera {career} en RecommendationScreen.");
             return;
         }
 
-        SetupPlanet(career);
+        SetupPlanet(recommendedWorld.carrera);
 
         popText.text = "";
         popText.transform.localScale = Vector3.zero;
@@ -58,7 +60,10 @@ public class RecommendationScreen : MonoBehaviour
         SetButtonsActive(false);
         buttonsGroup.alpha = 0f;
 
-        goToPlanetBT.onClick.AddListener(() => StaticMenu.LoadSceneSafe(recommendedWorld.sceneName));
+        if (goToPlanetBT != null)
+        {
+            goToPlanetBT.onClick.AddListener(() => StaticMenu.LoadSceneSafe(recommendedWorld.sceneName));
+        }
         otherPlanetsBT.onClick.AddListener(() => StaticMenu.LoadSceneSafe(planetSelectionSceneName));
 
         StartCoroutine(RevealRoutine());
