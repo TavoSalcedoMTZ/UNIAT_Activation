@@ -14,6 +14,24 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/2.unity
     guid: 005d6e7e61a829a43a7b259cb9cd8854
+  - enabled: 1
+    path: Assets/Scenes/recomendation.unity
+    guid: e38059ab161ff584aa25d79717e69462
+  - enabled: 1
+    path: Assets/Scenes/3.unity
+    guid: f27eb0e0563f46443a6479440e6e0581
+  - enabled: 1
+    path: Assets/Scenes/worlds/W_IPV.unity
+    guid: 164781b30412aa94c82ec07aa4e0d346
+  - enabled: 1
+    path: Assets/Scenes/worlds/W_LAV.unity
+    guid: 68c012b868caca247bddcd22b01061db
+  - enabled: 1
+    path: Assets/Scenes/worlds/W_CAD.unity
+    guid: 7f0b1ff0c5c970e4eb10185ee3660b42
+  - enabled: 1
+    path: Assets/Scenes/worlds/W_CS.unity
+    guid: 9d117a4a763a2a643b6ed7743c2375f6
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

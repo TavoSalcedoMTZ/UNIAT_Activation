@@ -1,12 +1,13 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 
 public class QuizzManager : MonoBehaviour
 {
     public List<quizzQuestion> questions = new();
     [Header("UI")]
     public QuizzUI quizzUI;
+    [Header("Resultado")]
+    public string recommendationSceneName = "recomendation";
     private int currentQuestionIndex = 0;
 
     public void Start()
@@ -42,12 +43,21 @@ public class QuizzManager : MonoBehaviour
         }
         else
         {
-            evaluationValues score = AppStaticManager.CurrentScore;
-            CareerType recommended = score.GetRecommendedCareer();
-            Debug.Log($"Quizz finished! [{score}] Carrera recomendada: {recommended.GetDisplayName()}");
-            // Handle end of quiz logic here
-
+            FinishQuizz();
         }
+    }
+
+    private void FinishQuizz()
+    {
+        //Quitamos los listeners para que clics extra ya no sumen puntos
+        quizzUI.ClearUIElements();
+
+        evaluationValues score = AppStaticManager.CurrentScore;
+        CareerType recommended = score.GetRecommendedCareer();
+        AppStaticManager.SetRecommendedCareer(recommended);
+        Debug.Log($"Quizz finished! [{score}] Carrera recomendada: {recommended.GetDisplayName()}");
+
+        StaticMenu.LoadSceneSafe(recommendationSceneName);
     }
 
     public void NextQuestion()

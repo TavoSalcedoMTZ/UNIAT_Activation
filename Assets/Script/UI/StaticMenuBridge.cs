@@ -4,14 +4,14 @@ public class StaticMenuBridge : MonoBehaviour
 {
  public void LoadScene(string sceneName)
     {
-        StaticMenu.Instance.LoadScene(sceneName);
+        StaticMenu.LoadSceneSafe(sceneName);
     }
     public void FadeOut()
     {
-        StaticMenu.Instance.FadeOut();
+        if (StaticMenu.Instance != null) StaticMenu.Instance.FadeOut();
     }
     public void FadeIn()
     {
-        StaticMenu.Instance.FadeIn();
+        if (StaticMenu.Instance != null) StaticMenu.Instance.FadeIn();
     }
 }

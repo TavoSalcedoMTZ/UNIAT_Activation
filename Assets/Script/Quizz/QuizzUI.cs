@@ -23,7 +23,9 @@ public class QuizzUI : MonoBehaviour
         ClearUIElements();
 
 
-        questionText.text = _q.GetQuestionText(AppStaticManager.CurrentUser.userName);
+        //Si se prueba la escena sin pasar por el registro no hay usuario
+        string userName = AppStaticManager.CurrentUser != null ? AppStaticManager.CurrentUser.userName : "Explorador";
+        questionText.text = _q.GetQuestionText(userName);
 
         trueBT.onClick.AddListener(() =>
         {

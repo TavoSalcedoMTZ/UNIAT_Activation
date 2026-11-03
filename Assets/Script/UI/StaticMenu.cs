@@ -32,6 +32,19 @@ public class StaticMenu : MonoBehaviour
         StartCoroutine(LoadSceneAsync(sceneName));
     }
 
+    //Si no existe el StaticMenu (probando una escena suelta en el editor) carga directo sin fade
+    public static void LoadSceneSafe(string sceneName)
+    {
+        if (Instance != null)
+        {
+            Instance.LoadScene(sceneName);
+        }
+        else
+        {
+            SceneManager.LoadScene(sceneName);
+        }
+    }
+
     private IEnumerator LoadSceneAsync(string sceneName)
     {
         isLoading = true;
