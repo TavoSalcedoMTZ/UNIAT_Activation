@@ -11,5 +11,11 @@ public static class AppStaticManager
         CurrentUser = user;
     }
 
+    //Se llama al iniciar el quizz, sin esto CurrentScore es null
+    public static void ResetScore()
+    {
+        CurrentScore = new evaluationValues();
+    }
+
 
 }

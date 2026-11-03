@@ -21,6 +21,7 @@ public class QuizzManager : MonoBehaviour
     public void StartQuizz()
     {
         currentQuestionIndex = 0;
+        AppStaticManager.ResetScore();
         ShowCurrentQuestion();
     }
 
@@ -41,7 +42,9 @@ public class QuizzManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("Quizz finished!");
+            evaluationValues score = AppStaticManager.CurrentScore;
+            CareerType recommended = score.GetRecommendedCareer();
+            Debug.Log($"Quizz finished! [{score}] Carrera recomendada: {recommended.GetDisplayName()}");
             // Handle end of quiz logic here
 
         }

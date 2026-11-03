@@ -428,7 +428,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57dacb54a610d4a4fafbeba15a4a7aa3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QuizzManager
-  questions: []
+  questions:
+  - {fileID: 11400000, guid: afdb55b14ce34a188f072407d6642fdb, type: 2}
+  - {fileID: 11400000, guid: a8099e1f161a4c7daa377034b50fabc8, type: 2}
+  - {fileID: 11400000, guid: 746a3b68f5484b45835a36dcaf7533a6, type: 2}
+  - {fileID: 11400000, guid: c567e6b49c0f4c4eae393f1bc4e14cff, type: 2}
+  - {fileID: 11400000, guid: e4a054c4fd8646ccb0f5b10f67187b68, type: 2}
+  quizzUI: {fileID: 534509784}
 --- !u!4 &534509786
 Transform:
   m_ObjectHideFlags: 0
@@ -1084,7 +1090,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1150328632
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1529,7 +1535,43 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1536326119}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1609770019}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: SetActive
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 1150328631}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: SetActive
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 534509785}
+        m_TargetAssemblyTypeName: QuizzManager, Assembly-CSharp
+        m_MethodName: StartQuizz
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1536326119
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1627,7 +1669,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1609770020
 RectTransform:
   m_ObjectHideFlags: 0
